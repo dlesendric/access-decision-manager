@@ -1,4 +1,5 @@
 #Access Decision Manager
+
 Similar to Symfony's and Spring but for now only "affirmative" strategy.
 
 How this can help you in React or React native? Check out some example how we use it in ActiveCollab:
@@ -101,5 +102,67 @@ export const voters = [
 
 //pls help with those 2 types any, any
 export default new AccessDecisionManager<User, any, any>(voters);
+```
+
+
+```tsx
+//#src/hooks
+//example how to create useSecurityHook
+import AccessDecisionManager from "../security"; //this is your instance of ADM, not mine
+import { useMemo } from "react";
+
+export const useSecurity = (): ((attributes: string[], item: IEntity, additional?: IEntity) => boolean) => {
+  return useMemo(() => {
+    return (attributes: string[], item: IEntity, additional?: IEntity): boolean => {
+      return AccessDecisionManager.decide(attributes, item, additional);
+    };
+  }, []);
+};
+
+
+
+// somewhere in some component
+export const MySecuredComponent = () => {
+  const can = useSecurity();
+  const additional = { global_projects_disabled: false };
+  const projects = useSelector(getProjects);
+  
+  const data = projects.filter(p => can(["view"], p, additional));
+  
+  return <div>{data.map(p => p.id + ",")}</div>
+}
+
+```
+
+
+## How to create Can component
+
+
+```tsx
+interface Props {
+  I: VoterAttributes;
+  entity?: IEntity;
+  additional?: IEntity;
+  not?: boolean;
+}
+export const Can: FC<PropsWithChildren<Props>> = ({ children, I, entity, additional, not }): ReactElement | null => {
+  const can = useSecurity();
+
+  if (not) {
+    return entity && !can(I, entity, additional) ? <Fragment>{children}</Fragment> : null;
+  }
+  return entity && can(I, entity, additional) ? <Fragment>{children}</Fragment> : null;
+};
+
+
+// somewhere in some component
+
+<Can I={["invite_project_member"]} entity={project}>
+  <Pressable
+    onPress={() => handleAddMember(item.id)}
+  >
+    <Text>Invite</Text>
+  </Pressable>
+</Can>
 ```
 
