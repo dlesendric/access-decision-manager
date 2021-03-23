@@ -111,7 +111,7 @@ export default new AccessDecisionManager<User, any, any>(voters);
 import AccessDecisionManager from "../security"; //this is your instance of ADM, not mine
 import { useMemo } from "react";
 
-export const useSecurity = (): () => boolean) => {
+export const useSecurity = (): () => boolean => {
   return (attributes: string[], item: IEntity, additional?: IEntity): boolean => {
     return AccessDecisionManager.decide(attributes, item, additional);
   };
