@@ -1,9 +1,3 @@
-/**
- * Jest configuration
- *
- * @format
- */
-
 module.exports = {
   preset: "ts-jest",
   transform: {
