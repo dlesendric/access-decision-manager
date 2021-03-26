@@ -1,76 +1,111 @@
-# Access Decision Manager
+# Table of contents
 
-Similar to Symfony's and Spring but for now only "affirmative" strategy.
+1. [Installation](https://github.com/dlesendric/access-decision-manager#installation)
+2. [Guide](https://github.com/dlesendric/access-decision-manager#examples)
+3. [Use it with hook](https://github.com/dlesendric/access-decision-manager#hook)
+4. [Use it with component](https://github.com/dlesendric/access-decision-manager#component)  
+5. [Redux integration](https://github.com/dlesendric/access-decision-manager#redux-integration)
 
-How this can help you in React or React native? Check out some example how we use it in ActiveCollab:
+## Installation
+`npm install @dlesendric/access-decision-manager` or with yarn:  `yarn install @dlesendric/access-decision-manager`
 
+## Guide
+Let's say we have a Project that can be edited by the user who created it.
+
+1. Create a directory inside your source, we love to call it `security`
+2. Create a ProjectVoter inside of `security` directory 
 ```ts
-// first you need to identity somehow Entities and User
-// we at ActiveCollab always have serialized class name exp:
-// { id: 1, class: "Project" }
-interface Project {
-  id: number,
-  class: "string"
-  members: [1, 2]
-};
-
 import { Voter } from "@dlesendric/access-decision-manager";
 
 export class ProjectVoter extends Voter<User, Project, undefined> {
-  static readonly attributes = [
-    "view",
-    "delete",
-  ];
+    static readonly attributes = [
+        "edit",
+        "delete",
+        "invite"
+    ];
 
-  constructor() {
-    super();
-  }
-  
-  supports(attribute: string, subject: Project): boolean {
-    if(!ProjectVoter.attributes.includes(attribute)){
-      return false;
+    constructor() {
+        super();
     }
-    return subject.class === "Project";
-  }
 
-  voteOnAttribute(attribute: string, subject: Project, user: User): boolean {
-    switch (attribute){
-      case "view": {
-        if(user.id === subject.created_by_id){
-          return true;
+    supports(attribute: string, subject: Project): boolean {
+        if(!ProjectVoter.attributes.includes(attribute)){
+            return false;
         }
-        if(subject.members.includes(user.id)){
-          return true;
-        }
-        return false;
-      }
-      case "delete": {
-        if (user.roles.includes("ROLE_SUPER_ADMIN")) {
-          //THE SUPER POWER
-          return true;
-        }
-        return user.id === subject.created_by_id;
-      }
+        return subject.class === "Project"; // We're checking whether the passed subject is indeed of class Project, you can change this to fit your need
     }
-  }
+    voteOnAttribute(attribute: string, subject: Project, user: User): boolean {
+        switch (attribute){
+            case "invite":
+            case "delete":
+            case "edit": {
+                if(user.id === subject.created_by_id){
+                    return true;
+                }
+                return false;
+            }
+        }
+    }
+}
+```
+2. In `security` directory create index.ts and add your ProjectVoter
+
+```ts
+import { AccessDecisionManager } from "@dlesndric/access-decision-manager";
+import { ProjectVoter } from "./security";
+
+// Instantiate a voter
+const projectVoter = new ProjectVoter();
+
+// Add it in array 
+export const voters = [
+    projectVoter
+];
+
+export default new AccessDecisionManager<User, any, any>(voters);
+```
+
+### Use it with Hook
+```ts
+import { useSecurity } from "@dlesndric/access-decision-manager"
+
+const projects = [
+    { id: 1, class: "Project", created_by_id: 1, name: "Project 1" },
+    { id: 2, class: "Project", created_by_id: 1, name: "Project 2" },
+    { id: 3, class: "Project", created_by_id: 2, name: "Project 3" }
+]
+export const ProjectLists: FC = () => {
+ const can = useSecurity();
+ const myUserId = 1;
+ 
+ // Get projects only I can edit and delete ->
+ const myProjects = can(["edit", "delete"], projects);
+ 
+ return (
+     <>
+         {myProjects.map(projects => <Projects data={myProjects} />)}
+     </>
+ )
 }
 ```
 
-### HOW TO INJECT USER?
-Let assume you are using some kind of redux , see example:
-```tsx
-import AccessDecisionManager from "./src/security";
+### Redux integration
+You can integrate global state management.  
+Currently, we're setting logged user, so we can have all user's info in our voter.
+
+```ts
+import { AccessDecisionManager } from "@dlesndric/access-decision-manager";
 import createStore from "./src/store";
 
 const { store, persistor } = createStore();
 
-let currentAuth: User | null;
+let currentUser: User | null;
 
 store.subscribe(() => {
-  const prevAuth = currentAuth;
-  currentAuth = store.getState().user;
-  if (prevAuth !== currentAuth) {
-    AccessDecisionManager.setUser(currentAuth);
+  const prevUser = currentUser;
+  currentUser = store.getState().user;
+  if (prevUser !== currentUser) {
+    AccessDecisionManager.setUser(currentUser);
   }
 });
 
@@ -79,88 +114,22 @@ const App = () => {
 }
 ```
 
+### Use it with component
+```ts
+import React from "react"
+import { AccessDecisionManager, Can } from "@dlesndric/access-decision-manager";
 
-### How to create super complicate Security Voters?
-
-```tsx
-# src/security/index.ts
-import { AccessDecisionManager } from "@dlesndric/access-decision-manager";
-
-import { ProjectVoter, TaskVoter, FileVoter } from "./voters";
-
-const projectVoter = new ProjectVoter();
-const taskVoter = new TaskVoter();
-const postVoter = new PostVoter();
-// ....
-const fileVoter = new FileVoter();
-export const voters = [
-  projectVoter,
-  taskVoter,
-  //....
-  fileVoter,
-];
-
-//pls help with those 2 types any, any
-export default new AccessDecisionManager<User, any, any>(voters);
-```
-
-
-```tsx
-//#src/hooks
-//example how to create useSecurityHook
-import AccessDecisionManager from "../security"; //this is your instance of ADM, not mine
-import { useMemo } from "react";
-
-export const useSecurity = (): () => boolean => {
-  return (attributes: string[], item: IEntity, additional?: IEntity): boolean => {
-    return AccessDecisionManager.decide(attributes, item, additional);
-  };
-};
-
-
-
-// somewhere in some component
-export const MySecuredComponent = () => {
-  const can = useSecurity();
-  const additional = { global_projects_disabled: false };
-  const projects = useSelector(getProjects);
-  
-  const data = projects.filter(p => can(["view"], p, additional));
-  
-  return <div>{data.map(p => p.id + ",")}</div>
+const projects = [
+    { id: 1, class: "Project", created_by_id: 1, name: "Project 1" },
+    { id: 2, class: "Project", created_by_id: 1, name: "Project 2" },
+    { id: 3, class: "Project", created_by_id: 2, name: "Project 3" }
+]
+// Only user who created the project can invite more people.
+export const InvitePeopleOnProject = () => {
+    return (
+        <Can I={["invite"]} entity={project}>
+            <button>Invite</button>
+        </Can>
+    )
 }
-
 ```
-
-
-## How to create Can component
-
-
-```tsx
-interface Props {
-  I: VoterAttributes;
-  entity?: IEntity;
-  additional?: IEntity;
-  not?: boolean;
-}
-export const Can: FC<PropsWithChildren<Props>> = ({ children, I, entity, additional, not }): ReactElement | null => {
-  const can = useSecurity();
-
-  if (not) {
-    return entity && !can(I, entity, additional) ? <Fragment>{children}</Fragment> : null;
-  }
-  return entity && can(I, entity, additional) ? <Fragment>{children}</Fragment> : null;
-};
-
-
-// somewhere in some component
-
-<Can I={["invite_project_member"]} entity={project}>
-  <Pressable
-    onPress={() => handleAddMember(item.id)}
-  >
-    <Text>Invite</Text>
-  </Pressable>
-</Can>
-```
-
