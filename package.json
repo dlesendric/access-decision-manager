@@ -1,8 +1,8 @@
 {
   "name": "@dlesendric/access-decision-manager",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Access Decision Manager, like Symfony and Spring , just for typescript or React or React Native",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "scripts": {
     "build": "rm -rf dist; tsc",
     "lint": "eslint .",
