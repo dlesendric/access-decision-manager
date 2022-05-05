@@ -49,9 +49,10 @@ export class ProjectVoter extends Voter<User, Project, undefined> {
 }
 ```
 2. In `security` directory create index.ts and add your ProjectVoter
-
+example file ./security/index.ts
 ```ts
 import { AccessDecisionManager } from "@dlesndric/access-decision-manager";
+import { RootState } from "./reducers"; //example of global state type
 import { ProjectVoter } from "./security";
 
 // Instantiate a voter
@@ -62,12 +63,19 @@ export const voters = [
     projectVoter
 ];
 
-export default new AccessDecisionManager<User, any, any>(voters);
+export default new AccessDecisionManager<User, RootState>(voters);
 ```
 
 ### Use it with Hook
+First create hook
 ```ts
-import { useSecurity } from "@dlesndric/access-decision-manager"
+
+import Security from "./security";
+export const useSecurity = (): ((attributes: string[], item?: IEntity) => boolean) => {
+    return Security.decide;
+};
+
+
 
 const projects = [
     { id: 1, class: "Project", created_by_id: 1, name: "Project 1" },
@@ -79,7 +87,9 @@ export const ProjectLists: FC = () => {
  const myUserId = 1;
  
  // Get projects only I can edit and delete ->
- const myProjects = can(["edit", "delete"], projects);
+ const myProjects = projects.filter(p => {
+    return can(['edit', 'delete'], p);
+ });
  
  return (
      <>
@@ -96,28 +106,41 @@ Currently, we're setting logged user, so we can have all user's info in our vote
 ```ts
 import { AccessDecisionManager } from "@dlesndric/access-decision-manager";
 import createStore from "./src/store";
+import { getUser } from "./src/store/selectors";
 
 const { store, persistor } = createStore();
+//store must have method getState: () => State
 
-let currentUser: User | null;
-
-store.subscribe(() => {
-  const prevUser = currentUser;
-  currentUser = store.getState().user;
-  if (prevUser !== currentUser) {
-    AccessDecisionManager.setUser(currentUser);
-  }
-});
+AccessDecisionManager.setStore(store);
+AccessDecisionManager.setUserResolver(state => getUser(state));
 
 const App = () => {
   return (<div/>)
 }
 ```
 
-### Use it with component
+### Use it with Can component
 ```ts
 import React from "react"
-import { AccessDecisionManager, Can } from "@dlesndric/access-decision-manager";
+
+import React, { FC, PropsWithChildren, ReactElement, Fragment } from "react";
+import { IEntity } from "../../types";
+import { useSecurity } from "../../hooks";
+
+interface Props {
+    I: VoterAttributes;
+    entity?: IEntity;
+    not?: boolean;
+}
+const Can: FC<PropsWithChildren<Props>> = ({ children, I, entity, not }): ReactElement | null => {
+    const can = useSecurity();
+
+    if (not) {
+        return entity && !can(I, entity) ? <Fragment>{children}</Fragment> : null;
+    }
+    return entity && can(I, entity) ? <Fragment>{children}</Fragment> : null;
+};
+
 
 const projects = [
     { id: 1, class: "Project", created_by_id: 1, name: "Project 1" },

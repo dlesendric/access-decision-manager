@@ -1,23 +1,36 @@
 import { Access, VoterInterface } from "./Voter";
-export class AccessDecisionManager<User, Entity, Params> {
-  private user: User | null;
 
-  constructor(
-    private voters: VoterInterface<User, Entity, Params>[] = [],
-    private allowIfAllAbstainDecisions: boolean = false,
-  ) {
+interface Store<S> {
+  getState: () => S;
+}
+
+export class AccessDecisionManager<User, State> {
+  private store: Store<State>;
+  private user: User | null | undefined;
+  private userResolver: (store: State) => User | null | undefined;
+
+  constructor(private voters: VoterInterface<any, any>[] = [], private allowIfAllAbstainDecisions: boolean = false) {
     this.user = null;
+    this.userResolver = () => null;
   }
 
-  setUser(user: User | null): void {
-    this.user = user;
+  setStore(store: Store<State>): void {
+    this.store = store;
   }
 
-  decide = (attributes: string[] = [], object: Entity, additional?: Params): boolean => {
+  public setUserResolver = (fn: (store: State) => User | null | undefined = () => null) => {
+    this.userResolver = fn;
+  };
+
+  decide = <Entity>(attributes: string[] = [], object: Entity): boolean => {
     let deny = 0;
-    if (this.user) {
+    const user = this.userResolver(this.store?.getState());
+    if (user && object) {
       for (const voter of this.voters) {
-        const result = voter.vote(this.user, object, attributes, additional);
+        if (this.store) {
+          voter.setState(this.store.getState());
+        }
+        const result = voter.vote(user, object, attributes);
         if (result === Access.ACCESS_GRANTED) {
           return true;
         }
