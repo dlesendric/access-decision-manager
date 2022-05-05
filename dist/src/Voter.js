@@ -9,7 +9,8 @@ var Access;
 })(Access = exports.Access || (exports.Access = {}));
 class Voter {
     constructor() {
-        this.vote = (user, subject, attributes, additional) => {
+        this.state = {};
+        this.vote = (user, subject, attributes) => {
             // abstain vote by default in case none of the attributes are supported
             let vote = Access.ACCESS_ABSTAIN;
             for (const attribute of attributes) {
@@ -17,11 +18,14 @@ class Voter {
                     continue;
                 }
                 vote = Access.ACCESS_DENIED;
-                if (user && this.voteOnAttribute(attribute, subject, user, additional)) {
+                if (user && this.voteOnAttribute(attribute, subject, user)) {
                     return Access.ACCESS_GRANTED;
                 }
             }
             return vote;
+        };
+        this.setState = (state) => {
+            this.state = state;
         };
     }
 }

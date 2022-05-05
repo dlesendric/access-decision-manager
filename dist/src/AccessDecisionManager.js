@@ -6,11 +6,19 @@ class AccessDecisionManager {
     constructor(voters = [], allowIfAllAbstainDecisions = false) {
         this.voters = voters;
         this.allowIfAllAbstainDecisions = allowIfAllAbstainDecisions;
-        this.decide = (attributes = [], object, additional) => {
+        this.setUserResolver = (fn = () => null) => {
+            this.userResolver = fn;
+        };
+        this.decide = (attributes = [], object) => {
+            var _a;
             let deny = 0;
-            if (this.user) {
+            const user = this.userResolver((_a = this.store) === null || _a === void 0 ? void 0 : _a.getState());
+            if (user && object) {
                 for (const voter of this.voters) {
-                    const result = voter.vote(this.user, object, attributes, additional);
+                    if (this.store) {
+                        voter.setState(this.store.getState());
+                    }
+                    const result = voter.vote(user, object, attributes);
                     if (result === Voter_1.Access.ACCESS_GRANTED) {
                         return true;
                     }
@@ -25,9 +33,10 @@ class AccessDecisionManager {
             return this.allowIfAllAbstainDecisions;
         };
         this.user = null;
+        this.userResolver = () => null;
     }
-    setUser(user) {
-        this.user = user;
+    setStore(store) {
+        this.store = store;
     }
 }
 exports.AccessDecisionManager = AccessDecisionManager;

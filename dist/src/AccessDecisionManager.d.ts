@@ -1,9 +1,16 @@
 import { VoterInterface } from "./Voter";
-export declare class AccessDecisionManager<User, Entity, Params> {
+interface Store<S> {
+    getState: () => S;
+}
+export declare class AccessDecisionManager<User, State> {
     private voters;
     private allowIfAllAbstainDecisions;
+    private store;
     private user;
-    constructor(voters?: VoterInterface<User, Entity, Params>[], allowIfAllAbstainDecisions?: boolean);
-    setUser(user: User | null): void;
-    decide: (attributes: string[], object: Entity, additional?: Params) => boolean;
+    private userResolver;
+    constructor(voters?: VoterInterface<any, any>[], allowIfAllAbstainDecisions?: boolean);
+    setStore(store: Store<State>): void;
+    setUserResolver: (fn?: (store: State) => User | null | undefined) => void;
+    decide: <Entity>(attributes: string[], object: Entity) => boolean;
 }
+export {};
